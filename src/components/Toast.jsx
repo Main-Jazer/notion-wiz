@@ -29,12 +29,12 @@ export function ToastProvider({ children }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const toast = useCallback({
+  const toast = useMemo(() => ({
     success: (message, duration) => addToast(message, 'success', duration),
     error: (message, duration) => addToast(message, 'error', duration),
     info: (message, duration) => addToast(message, 'info', duration),
     warning: (message, duration) => addToast(message, 'warning', duration),
-  }, [addToast]);
+  }), [addToast]);
 
   return (
     <ToastContext.Provider value={{ toast, addToast, removeToast }}>

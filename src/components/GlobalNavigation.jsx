@@ -58,13 +58,16 @@ export function GlobalNavigation({
   }, [showNavMenu]);
 
   // Build breadcrumbs based on current view
+  // Structure: Home > Widget Name > Builder OR Home > Brand Generator
   const breadcrumbs = React.useMemo(() => {
     const items = [{ label: 'Home', onClick: onNavigateHome }];
     
     if (currentView === 'builder' && selectedWidgetId && selectedWidgetLabel) {
+      // Builder view: show widget name and builder step
       items.push({ label: selectedWidgetLabel, onClick: null });
       items.push({ label: 'Builder', onClick: null });
     } else if (currentView === 'brand-generator') {
+      // Brand generator view: show generator step
       items.push({ label: 'Brand Generator', onClick: null });
     }
     

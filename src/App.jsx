@@ -3531,13 +3531,15 @@ export default function App() {
   // Keyboard shortcuts
   useKeyboardShortcuts({
     'cmd+k': () => {
-      // Quick widget switcher - for now just go to landing
+      // Quick widget switcher - navigate to widget landing page for now
+      // TODO: Implement modal quick switcher in future enhancement
       navigateToHome();
     },
     'cmd+e': () => {
       // Open export - only works in builder view
+      // This will be handled by the builder component when in that view
       if (view === 'builder') {
-        // Trigger export modal - we'll need to pass this down
+        // Export modal trigger will be passed down to builder component
       }
     },
     'cmd+b': () => {

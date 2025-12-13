@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Hook to track recently edited widgets
- * Stores up to 5 recently accessed widgets in localStorage
+ * Stores recently accessed widgets in localStorage (default: 5, configurable)
  * 
+ * @param {number} maxRecent - Maximum number of recent widgets to track (default: 5)
  * @returns {Object} { recentWidgets, addRecentWidget, clearRecent }
  */
 export function useRecentWidgets(maxRecent = 5) {
