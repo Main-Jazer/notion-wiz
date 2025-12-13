@@ -14,6 +14,12 @@ import {
 } from 'lucide-react';
 import ColorThief from 'colorthief';
 
+// New components for modernization
+import { GlobalNavigation } from './components/GlobalNavigation';
+import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { ToastProvider, useToast } from './components/Toast';
+
 import { counterConfig } from './widgets/counter-widget/config';
 import { CounterWidget } from './widgets/counter-widget/CounterWidget';
 import { generateHTML as generateCounterHTML, generateScript as generateCounterScript } from './widgets/counter-widget/export';
@@ -1829,88 +1835,20 @@ const ResizablePreviewPanel = ({
   );
 };
 
-function GlobalNavigation({ currentView, onNavigateHome, onNavigateBuilder, onNavigateBrand, selectedWidgetId, hasBrandTheme, brandLabel }) {
-  const navItems = [
-    { id: 'landing', label: 'Widgets', action: onNavigateHome },
-    { id: 'builder', label: 'Builder', action: onNavigateBuilder, disabled: !selectedWidgetId },
-    { id: 'brand-generator', label: 'Brand Kit', action: onNavigateBrand }
-  ];
-  const [showNavMenu, setShowNavMenu] = useState(false);
-  const navMenuRef = useRef(null);
+// Export WIDGET_REGISTRY for use in GlobalNavigation
+export { WIDGET_REGISTRY };
 
-  useEffect(() => {
-    if (!showNavMenu) return undefined;
-    const handleClick = (event) => {
-      if (!navMenuRef.current) return;
-      if (!navMenuRef.current.contains(event.target)) {
-        setShowNavMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showNavMenu]);
-
-  return (
-    <header className="w-full border-b border-white/5 bg-[#0B0E12]/90 backdrop-blur-md sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-black text-white">NW</div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">JaZeR</p>
-            <p className="text-base font-semibold text-white">Notion Wiz Builder</p>
-          </div>
-        </div>
-        <div className="flex-1 flex justify-end md:justify-center">
-          <div className="relative" ref={navMenuRef}>
-            <button
-              type="button"
-              onClick={() => setShowNavMenu((prev) => !prev)}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-full border border-white/15 text-neutral-200 hover:border-purple-300 hover:text-white transition"
-            >
-              <Menu className="w-4 h-4" />
-              Navigate
-            </button>
-            {showNavMenu && (
-              <div className="absolute right-0 mt-2 min-w-[200px] bg-[#0C0F16] border border-white/10 rounded-xl shadow-lg shadow-black/40 p-2 space-y-1">
-                {navItems.map(item => {
-                  const isActive = currentView === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        item.action();
-                        setShowNavMenu(false);
-                      }}
-                      disabled={item.disabled}
-                      className={`w-full px-3 py-2 rounded-lg text-left text-[12px] transition ${
-                        isActive
-                          ? 'bg-purple-500/20 border border-purple-400 text-white'
-                          : 'bg-white/5 border border-white/5 text-neutral-200 hover:border-purple-300 hover:text-white'
-                      } ${item.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-neutral-300">
-          <span className="uppercase tracking-widest text-neutral-500">Brand</span>
-          <span className={`px-3 py-1 rounded-full border ${hasBrandTheme ? 'border-emerald-400 text-emerald-200' : 'border-white/15 text-neutral-300'}`}>
-            {hasBrandTheme ? brandLabel : 'Default JaZeR Neon'}
-          </span>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function WidgetLandingPage({ onSelect, onBrandGenerator }) {
+function WidgetLandingPage({ onSelect, onBrandGenerator, setSearchInputRef }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputLocalRef = useRef(null);
+
+  // Set search input ref for parent keyboard shortcuts
+  useEffect(() => {
+    if (setSearchInputRef && searchInputLocalRef.current) {
+      setSearchInputRef(searchInputLocalRef.current);
+    }
+  }, [setSearchInputRef]);
 
   const widgetList = useMemo(() => (
     Object.values(WIDGET_REGISTRY).map(widget => ({
@@ -2099,11 +2037,13 @@ function WidgetLandingPage({ onSelect, onBrandGenerator }) {
             <div className="relative ml-auto">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
               <input
+                ref={searchInputLocalRef}
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search widgets..."
-                className="pl-9 pr-3 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-purple-400"
+                className="pl-9 pr-3 py-2 rounded-full bg-white/5 border border-interactive text-sm text-white placeholder:text-neutral-500 focus-ring"
+                aria-label="Search widgets"
               />
             </div>
           </div>
@@ -3461,6 +3401,8 @@ export default function App() {
   const [selectedWidgetId, setSelectedWidgetId] = useState('clock');
   const [globalBrandTheme, setGlobalBrandTheme] = useState(() => loadStoredBrandTheme());
   const [returnView, setReturnView] = useState('landing');
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [searchInputRef, setSearchInputRef] = useState(null);
 
   const navigateToBuilder = (id) => {
     setSelectedWidgetId(id);
@@ -3483,6 +3425,39 @@ export default function App() {
   const handleThemeGenerated = (theme) => {
     setGlobalBrandTheme(theme ? normalizeBrandTheme(theme) : null);
   };
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    'cmd+k': () => {
+      // Quick widget switcher - for now just go to landing
+      navigateToHome();
+    },
+    'cmd+e': () => {
+      // Open export - only works in builder view
+      if (view === 'builder') {
+        // Trigger export modal - we'll need to pass this down
+      }
+    },
+    'cmd+b': () => {
+      navigateToBrandGenerator();
+    },
+    'cmd+/': () => {
+      // Focus search input
+      if (searchInputRef) {
+        searchInputRef.focus();
+      }
+    },
+    '?': (e) => {
+      // Don't trigger in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+      setShowShortcutsHelp(true);
+    },
+    'Escape': () => {
+      setShowShortcutsHelp(false);
+    }
+  }, !isEmbedMode); // Disable shortcuts in embed mode
 
   // Handle embed mode first (before normal app render)
   if (isEmbedMode && urlWidgetId && WIDGET_REGISTRY[urlWidgetId]) {
@@ -3525,7 +3500,7 @@ export default function App() {
     : 'none';
 
   return (
-    <>
+    <ToastProvider>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;700&family=Montserrat:wght@400;600&display=swap');
         ${BRAND_KITS.jazer.extraCSS}
@@ -3537,13 +3512,19 @@ export default function App() {
           onNavigateHome={navigateToHome}
           onNavigateBuilder={() => navigateToBuilder(selectedWidgetId || 'clock')}
           onNavigateBrand={navigateToBrandGenerator}
+          onOpenHelp={() => setShowShortcutsHelp(true)}
           selectedWidgetId={selectedWidgetId}
+          selectedWidgetLabel={WIDGET_REGISTRY[selectedWidgetId]?.label || ''}
           hasBrandTheme={Boolean(globalBrandTheme)}
           brandLabel={brandLabel}
         />
         <div className="flex-1 w-full">
           {view === 'landing' ? (
-            <WidgetLandingPage onSelect={navigateToBuilder} onBrandGenerator={navigateToBrandGenerator} />
+            <WidgetLandingPage 
+              onSelect={navigateToBuilder} 
+              onBrandGenerator={navigateToBrandGenerator}
+              setSearchInputRef={setSearchInputRef}
+            />
           ) : view === 'brand-generator' ? (
             <WidgetErrorBoundary>
               <BrandThemeGenerator 
@@ -3562,7 +3543,13 @@ export default function App() {
             />
           )}
         </div>
+        
+        {/* Keyboard shortcuts help modal */}
+        <KeyboardShortcutsHelp 
+          isOpen={showShortcutsHelp} 
+          onClose={() => setShowShortcutsHelp(false)} 
+        />
       </div>
-    </>
+    </ToastProvider>
   );
 }
