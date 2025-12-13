@@ -14,6 +14,12 @@ import {
 } from 'lucide-react';
 import ColorThief from 'colorthief';
 
+// New components for modernization
+import { GlobalNavigation } from './components/GlobalNavigation';
+import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { ToastProvider, useToast } from './components/Toast';
+
 import { counterConfig } from './widgets/counter-widget/config';
 import { CounterWidget } from './widgets/counter-widget/CounterWidget';
 import { generateHTML as generateCounterHTML, generateScript as generateCounterScript } from './widgets/counter-widget/export';
@@ -46,6 +52,7 @@ import { generateHTML as generateButtonHTML, generateScript as generateButtonScr
 import { BrandLogoUploader } from './components/BrandLogoUploader';
 import BrandThemeGenerator from './components/BrandThemeGenerator';
 import { normalizeBrandTheme } from './utils/brandTheme';
+import { useRecentWidgets, formatRelativeTime } from './hooks/useRecentWidgets';
 
 // --- CONSTANTS & CONFIG ---
 
@@ -1829,88 +1836,20 @@ const ResizablePreviewPanel = ({
   );
 };
 
-function GlobalNavigation({ currentView, onNavigateHome, onNavigateBuilder, onNavigateBrand, selectedWidgetId, hasBrandTheme, brandLabel }) {
-  const navItems = [
-    { id: 'landing', label: 'Widgets', action: onNavigateHome },
-    { id: 'builder', label: 'Builder', action: onNavigateBuilder, disabled: !selectedWidgetId },
-    { id: 'brand-generator', label: 'Brand Kit', action: onNavigateBrand }
-  ];
-  const [showNavMenu, setShowNavMenu] = useState(false);
-  const navMenuRef = useRef(null);
+// Export WIDGET_REGISTRY for use in GlobalNavigation
+export { WIDGET_REGISTRY };
 
-  useEffect(() => {
-    if (!showNavMenu) return undefined;
-    const handleClick = (event) => {
-      if (!navMenuRef.current) return;
-      if (!navMenuRef.current.contains(event.target)) {
-        setShowNavMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showNavMenu]);
-
-  return (
-    <header className="w-full border-b border-white/5 bg-[#0B0E12]/90 backdrop-blur-md sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-black text-white">NW</div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">JaZeR</p>
-            <p className="text-base font-semibold text-white">Notion Wiz Builder</p>
-          </div>
-        </div>
-        <div className="flex-1 flex justify-end md:justify-center">
-          <div className="relative" ref={navMenuRef}>
-            <button
-              type="button"
-              onClick={() => setShowNavMenu((prev) => !prev)}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-full border border-white/15 text-neutral-200 hover:border-purple-300 hover:text-white transition"
-            >
-              <Menu className="w-4 h-4" />
-              Navigate
-            </button>
-            {showNavMenu && (
-              <div className="absolute right-0 mt-2 min-w-[200px] bg-[#0C0F16] border border-white/10 rounded-xl shadow-lg shadow-black/40 p-2 space-y-1">
-                {navItems.map(item => {
-                  const isActive = currentView === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        item.action();
-                        setShowNavMenu(false);
-                      }}
-                      disabled={item.disabled}
-                      className={`w-full px-3 py-2 rounded-lg text-left text-[12px] transition ${
-                        isActive
-                          ? 'bg-purple-500/20 border border-purple-400 text-white'
-                          : 'bg-white/5 border border-white/5 text-neutral-200 hover:border-purple-300 hover:text-white'
-                      } ${item.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-neutral-300">
-          <span className="uppercase tracking-widest text-neutral-500">Brand</span>
-          <span className={`px-3 py-1 rounded-full border ${hasBrandTheme ? 'border-emerald-400 text-emerald-200' : 'border-white/15 text-neutral-300'}`}>
-            {hasBrandTheme ? brandLabel : 'Default JaZeR Neon'}
-          </span>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function WidgetLandingPage({ onSelect, onBrandGenerator }) {
+function WidgetLandingPage({ onSelect, onBrandGenerator, setSearchInputRef }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputLocalRef = useRef(null);
+
+  // Set search input ref for parent keyboard shortcuts
+  useEffect(() => {
+    if (setSearchInputRef && searchInputLocalRef.current) {
+      setSearchInputRef(searchInputLocalRef.current);
+    }
+  }, [setSearchInputRef]);
 
   const widgetList = useMemo(() => (
     Object.values(WIDGET_REGISTRY).map(widget => ({
@@ -2099,11 +2038,13 @@ function WidgetLandingPage({ onSelect, onBrandGenerator }) {
             <div className="relative ml-auto">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
               <input
+                ref={searchInputLocalRef}
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search widgets..."
-                className="pl-9 pr-3 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-purple-400"
+                className="pl-9 pr-3 py-2 rounded-full bg-white/5 border border-interactive text-sm text-white placeholder:text-neutral-500 focus-ring"
+                aria-label="Search widgets"
               />
             </div>
           </div>
@@ -2351,6 +2292,9 @@ function NotionWidgetBuilder({ initialWidgetId, onBack, globalBrandTheme, onBran
     }
   });
 
+  // Recent widgets tracking
+  const { recentWidgets, addRecentWidget } = useRecentWidgets();
+
   // EXPORT STATES
   const [showExport, setShowExport] = useState(false);
   const getIsDesktop = useCallback(() => {
@@ -2443,6 +2387,12 @@ function NotionWidgetBuilder({ initialWidgetId, onBack, globalBrandTheme, onBran
     setConfig(themedConfig);
     setShowExport(false);
     setWidgetSearch('');
+    
+    // Track as recent widget
+    const widget = WIDGET_REGISTRY[id];
+    if (widget) {
+      addRecentWidget(id, widget.label);
+    }
   };
 
   const handleBrandChange = (brandId) => {
@@ -2868,7 +2818,7 @@ function NotionWidgetBuilder({ initialWidgetId, onBack, globalBrandTheme, onBran
             Choose a widget to edit. Use search or pin your frequent favorites for faster access.
           </p>
         </div>
-        <div className="px-4 py-3 border-b border-white/5 space-y-2">
+        <div className="px-4 py-3 border-b border-subtle space-y-2">
           <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
                 <input
@@ -2876,36 +2826,110 @@ function NotionWidgetBuilder({ initialWidgetId, onBack, globalBrandTheme, onBran
                   value={widgetSearch}
                   onChange={(e) => setWidgetSearch(e.target.value)}
                   placeholder="Search widgets..."
-                  className="w-full bg-white/5 border border-white/10 rounded-full py-2 pl-9 pr-3 text-sm text-white placeholder:text-neutral-400 focus:outline-none focus:border-purple-400 focus:ring-0"
+                  className="w-full bg-white/5 border-interactive rounded-full py-2 pl-9 pr-9 text-sm text-white placeholder:text-neutral-400 focus-ring transition-all"
+                  aria-label="Search widgets"
                 />
+                {widgetSearch && (
+                  <button
+                    onClick={() => setWidgetSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors focus-ring rounded"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
           </div>
           <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-neutral-500">
             <span>{filteredWidgets.length} results</span>
             <span className="text-neutral-400">Pin favorites for quick access</span>
           </div>
         </div>
-        <div className="px-4 py-2 border-b border-white/5 flex flex-wrap gap-2">
+        <div className="px-4 py-2 border-b border-subtle flex flex-wrap gap-2">
           {navFilters.map(filter => {
             const label = filter === 'all' ? 'All Widgets' : filter === 'pinned' ? 'Pinned' : filter;
             const isActive = navFilter === filter;
             const disabled = filter === 'pinned' && pinnedWidgets.length === 0;
+            
+            // Icons for categories
+            const icons = {
+              all: Layout,
+              pinned: Star,
+              'Time & Productivity': Clock,
+              'Data & Information': BarChart3,
+              'Media & Display': ImageIcon,
+              'Interactive & Actions': MousePointerClick,
+              Other: MoreHorizontal
+            };
+            const IconComponent = icons[filter] || null;
+            
             return (
               <button
                 key={filter}
                 type="button"
                 disabled={disabled}
                 onClick={() => setNavFilter(filter)}
-                className={`text-[10px] px-3 py-1.5 rounded-full border transition ${isActive ? 'border-purple-400 text-white bg-purple-500/20' : 'border-white/10 text-neutral-300 hover:border-purple-300 hover:text-white'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-400`}
+                className={`
+                  text-[10px] px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5
+                  ${isActive 
+                    ? 'border-accent text-white bg-purple-500/20 shadow-sm' 
+                    : 'border-interactive text-neutral-300 hover:border-emphasis hover:text-white hover:bg-white/5'
+                  } 
+                  ${disabled ? 'opacity-30 cursor-not-allowed' : ''} 
+                  focus-ring
+                `}
                 aria-pressed={isActive}
               >
+                {IconComponent && <IconComponent className="w-3 h-3" />}
                 {label}
               </button>
             );
           })}
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+          {/* Recent Widgets Section */}
+          {recentWidgets.length > 0 && navFilter === 'all' && !widgetSearch && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-[10px] uppercase tracking-wider font-bold text-purple-400 flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" />
+                  Recent
+                </h3>
+                <span className="text-[9px] text-neutral-500">{recentWidgets.length}</span>
+              </div>
+              <div className="space-y-1.5">
+                {recentWidgets.slice(0, 3).map(recent => {
+                  const isActive = activeWidgetId === recent.id;
+                  return (
+                    <button
+                      key={recent.id}
+                      type="button"
+                      onClick={() => handleWidgetChange(recent.id)}
+                      className={`
+                        w-full px-3 py-2 rounded-lg text-left transition-all flex items-center justify-between group
+                        ${isActive 
+                          ? 'bg-purple-500/15 border border-accent text-white' 
+                          : 'bg-white/5 border border-subtle hover:border-interactive hover:bg-white/[0.07] text-neutral-300 hover:text-white'
+                        }
+                      `}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate">{recent.label}</div>
+                        <div className="text-[10px] text-neutral-500">
+                          {formatRelativeTime(recent.timestamp)}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="border-t border-subtle pt-2" />
+            </div>
+          )}
+
+          {/* Main Widget List */}
           {filteredWidgets.length === 0 ? (
-            <div className="text-xs text-neutral-400 bg-white/5 border border-white/10 rounded-xl p-4">
+            <div className="text-xs text-neutral-400 bg-white/5 border-subtle rounded-xl p-4">
               No widgets match your search. Try a different phrase or reset filters.
             </div>
           ) : (
@@ -2915,23 +2939,37 @@ function NotionWidgetBuilder({ initialWidgetId, onBack, globalBrandTheme, onBran
               return (
                 <div
                   key={w.id}
-                  className={`border rounded-xl p-3 flex items-start gap-3 transition ${isActive ? 'border-purple-400 bg-purple-500/15 shadow-lg shadow-purple-900/30' : 'border-white/10 bg-white/5 hover:border-purple-300/70'}`}
+                  className={`border rounded-xl p-3 flex items-start gap-3 transition-all duration-200 ${
+                    isActive 
+                      ? 'border-accent bg-purple-500/15 shadow-lg shadow-purple-900/30' 
+                      : 'border-interactive bg-white/5 hover:border-emphasis hover:bg-white/[0.07]'
+                  }`}
                 >
                   <button
                     type="button"
                     onClick={() => handleWidgetChange(w.id)}
-                    className="flex-1 text-left flex items-start gap-3"
+                    className="flex-1 text-left flex items-start gap-3 focus-ring-inset rounded"
                   >
-                    <div className={`pt-1 px-2 py-1 rounded-lg text-sm ${isActive ? 'text-purple-300' : 'text-neutral-300'}`}>
+                    <div className={`pt-1 px-2 py-1 rounded-lg text-sm transition-colors ${
+                      isActive ? 'text-purple-300 bg-purple-500/10' : 'text-neutral-300'
+                    }`}>
                       {w.icon}
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-white">{w.label}</span>
-                        {isActive && <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-400 text-purple-200">Active</span>}
+                        {isActive && (
+                          <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-purple-500/20 border border-accent text-purple-200">
+                            Active
+                          </span>
+                        )}
                       </div>
-                      <p className="text-[11px] text-neutral-400 leading-snug">{shortDescription}</p>
-                      <span className="text-[10px] uppercase tracking-wider text-neutral-500">{w.category}</span>
+                      <p className="text-[11px] text-neutral-400 leading-snug line-clamp-2">
+                        {shortDescription}
+                      </p>
+                      <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                        {w.category}
+                      </span>
                     </div>
                   </button>
                   <button
@@ -2941,7 +2979,11 @@ function NotionWidgetBuilder({ initialWidgetId, onBack, globalBrandTheme, onBran
                       e.stopPropagation();
                       togglePinned(w.id);
                     }}
-                    className={`p-1.5 rounded-full border ${w.isPinned ? 'border-amber-300 text-amber-200 bg-amber-500/10' : 'border-white/10 text-neutral-400 hover:border-amber-200 hover:text-amber-200'}`}
+                    className={`p-1.5 rounded-full border transition-all focus-ring ${
+                      w.isPinned 
+                        ? 'border-amber-300 text-amber-200 bg-amber-500/10 hover:bg-amber-500/20' 
+                        : 'border-interactive text-neutral-400 hover:border-amber-200 hover:text-amber-200 hover:bg-amber-500/10'
+                    }`}
                   >
                     <Star className="w-3.5 h-3.5" fill={w.isPinned ? '#FCD34D' : 'none'} />
                   </button>
@@ -3461,6 +3503,8 @@ export default function App() {
   const [selectedWidgetId, setSelectedWidgetId] = useState('clock');
   const [globalBrandTheme, setGlobalBrandTheme] = useState(() => loadStoredBrandTheme());
   const [returnView, setReturnView] = useState('landing');
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [searchInputRef, setSearchInputRef] = useState(null);
 
   const navigateToBuilder = (id) => {
     setSelectedWidgetId(id);
@@ -3483,6 +3527,41 @@ export default function App() {
   const handleThemeGenerated = (theme) => {
     setGlobalBrandTheme(theme ? normalizeBrandTheme(theme) : null);
   };
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    'cmd+k': () => {
+      // Quick widget switcher - navigate to widget landing page for now
+      // TODO: Implement modal quick switcher in future enhancement
+      navigateToHome();
+    },
+    'cmd+e': () => {
+      // Open export - only works in builder view
+      // This will be handled by the builder component when in that view
+      if (view === 'builder') {
+        // Export modal trigger will be passed down to builder component
+      }
+    },
+    'cmd+b': () => {
+      navigateToBrandGenerator();
+    },
+    'cmd+/': () => {
+      // Focus search input
+      if (searchInputRef) {
+        searchInputRef.focus();
+      }
+    },
+    '?': (e) => {
+      // Don't trigger in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+      setShowShortcutsHelp(true);
+    },
+    'Escape': () => {
+      setShowShortcutsHelp(false);
+    }
+  }, !isEmbedMode); // Disable shortcuts in embed mode
 
   // Handle embed mode first (before normal app render)
   if (isEmbedMode && urlWidgetId && WIDGET_REGISTRY[urlWidgetId]) {
@@ -3525,7 +3604,7 @@ export default function App() {
     : 'none';
 
   return (
-    <>
+    <ToastProvider>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;700&family=Montserrat:wght@400;600&display=swap');
         ${BRAND_KITS.jazer.extraCSS}
@@ -3537,13 +3616,19 @@ export default function App() {
           onNavigateHome={navigateToHome}
           onNavigateBuilder={() => navigateToBuilder(selectedWidgetId || 'clock')}
           onNavigateBrand={navigateToBrandGenerator}
+          onOpenHelp={() => setShowShortcutsHelp(true)}
           selectedWidgetId={selectedWidgetId}
+          selectedWidgetLabel={WIDGET_REGISTRY[selectedWidgetId]?.label || ''}
           hasBrandTheme={Boolean(globalBrandTheme)}
           brandLabel={brandLabel}
         />
         <div className="flex-1 w-full">
           {view === 'landing' ? (
-            <WidgetLandingPage onSelect={navigateToBuilder} onBrandGenerator={navigateToBrandGenerator} />
+            <WidgetLandingPage 
+              onSelect={navigateToBuilder} 
+              onBrandGenerator={navigateToBrandGenerator}
+              setSearchInputRef={setSearchInputRef}
+            />
           ) : view === 'brand-generator' ? (
             <WidgetErrorBoundary>
               <BrandThemeGenerator 
@@ -3562,7 +3647,13 @@ export default function App() {
             />
           )}
         </div>
+        
+        {/* Keyboard shortcuts help modal */}
+        <KeyboardShortcutsHelp 
+          isOpen={showShortcutsHelp} 
+          onClose={() => setShowShortcutsHelp(false)} 
+        />
       </div>
-    </>
+    </ToastProvider>
   );
 }
