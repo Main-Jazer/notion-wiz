@@ -76,6 +76,34 @@
   --jazer-glow-cyan: 0 0 20px rgba(0, 242, 234, 0.5), 0 0 40px rgba(147, 51, 234, 0.3);
 }
 
+/* Semantic Border Utilities */
+@layer utilities {
+  .border-subtle {
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .border-interactive {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .border-emphasis {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .border-accent {
+    border-color: #A78BFA;
+  }
+  
+  /* Enhanced Focus States for Accessibility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black;
+  }
+  
+  .focus-ring-inset {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-400;
+  }
+}
+
 /* Base Styles */
 * {
   margin: 0;
